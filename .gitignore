@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+
+# Secrets and local config - never commit
+.env
+*.pem
+*secret*
+*credentials*
+
+# Databricks bundle local state
+.databricks/
+
+# Generated synthetic data (we regenerate it, never commit it)
+data_generator/output/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
