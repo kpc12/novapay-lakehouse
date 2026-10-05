@@ -29,3 +29,34 @@
 - Credit cards and joint holders only for kyc_status = verified; a joint holder differs from the primary
 - Phone prefix by country: LT +3706, LV +3712, EE +3725
 - Transactions and other daily feeds: defined in Step 1.3
+
+## Step 1.3 additions (schema_version 1.0)
+- Manifest: `currency_field` and `amount_totals` (control totals per currency over ALL records,
+  including declined; `"ALL"` key when the entity has no currency field)
+- acquirer/merchants: country now LT, PL, SE, GB, US (~8% foreign; foreign = online purchases)
+
+## payments/transactions (daily events, partitioned by Europe/Vilnius business date)
+Business key: transaction_id (unique; prefix encodes stream: P purchase, R refund,
+B bill payment, X transfer out, S salary). Fields: transaction_id, event_ts (UTC),
+transaction_type (purchase/refund/bill_payment/transfer_out/salary_in), customer_id, account_id,
+payment_method (debit_card/credit_card/mobile_wallet/bank_transfer),
+channel (pos/online/mobile_app/web/bank_network), merchant_id, biller_id, bill_reference,
+due_date (yyyy-mm-dd), counterparty_iban (PII), original_transaction_id, amount, currency,
+status (completed/declined). Non-applicable fields are null.
+
+Rules:
+- Amounts are always positive; direction comes from transaction_type
+  (debit: purchase, bill_payment, transfer_out; credit: refund, salary_in)
+- Refunds are new rows referencing a completed purchase from the previous 1-10 days;
+  same customer, account, method, merchant, currency; amount <= original
+- credit_card payments use the customer's credit-card account; debit_card and bank_transfer use
+  the current account; mobile_wallet uses either
+- Customers with kyc_status = expired make no outgoing payments (they can still receive salary/refunds)
+- Currency follows merchant country (LT EUR, PL PLN, SE SEK, GB GBP, US USD); transfers, bills, salaries EUR
+- Spend metrics exclude bill_payment (see data model rules)
+
+## reference/fx_rates (only on FX publication days)
+Fields: rate_date, base_currency (EUR), currency, rate (units per 1 EUR, 4 dp), source.
+No file on weekends or fixed-date TARGET closing days (1 Jan, 1 May, 25-26 Dec).
+Consumers convert with the latest rate on or before the transaction's business date
+(as-of join). Synthetic values - not market data.

@@ -11,9 +11,9 @@ from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Iterable
 
-SCHEMA_VERSION = "1.0"      # C4: contract version carried in every manifest
+SCHEMA_VERSION = "1.0"      # contract version carried in every manifest
 CENT = Decimal("0.01")
-SEQ_DAY_FACTOR = 10_000_000  # C2: up to 9,999,999 changes per entity per day
+SEQ_DAY_FACTOR = 10_000_000  # up to 9,999,999 changes per entity per day
 
 
 def rng_for(seed: int, *parts: object) -> random.Random:
@@ -32,7 +32,7 @@ def utc_ts(dt: datetime) -> str:
 
 
 def change_seq(business_date: date, n: int) -> int:
-    """C2: ordering key that keeps increasing across days, e.g. 202609010000001."""
+    """Ordering key that keeps increasing across days, e.g. 202609010000001."""
     if not 1 <= n < SEQ_DAY_FACTOR:
         raise ValueError(f"change sequence {n} out of range for one day")
     return int(business_date.strftime("%Y%m%d")) * SEQ_DAY_FACTOR + n
@@ -53,24 +53,28 @@ def partition_dir(root: Path, source: str, entity: str, business_date: date) -> 
     return root / source / entity / f"{business_date:%Y}" / f"{business_date:%m}" / f"{business_date:%d}"
 
 
-def _amount_total(records: Iterable[dict], amount_field: str | None) -> str | None:
+def _amount_totals(records: Iterable[dict], amount_field: str | None,
+                   currency_field: str | None) -> dict[str, str] | None:
+    """Control totals per currency (mixed-currency sums are meaningless)."""
     if amount_field is None:
         return None
-    total = Decimal("0")
+    totals: dict[str, Decimal] = {}
     for r in records:
         try:
-            total += Decimal(str(r.get(amount_field)))
+            amount = Decimal(str(r.get(amount_field)))
         except (InvalidOperation, TypeError):
-            continue  # unparseable amounts are not counted in the control total
-    return money(total)
+            continue  # unparseable amounts are not counted
+        key = str(r.get(currency_field)) if currency_field else "ALL"
+        totals[key] = totals.get(key, Decimal("0")) + amount
+    return {k: money(v) for k, v in sorted(totals.items())}
 
 
-def write_batch(root: Path, source: str, entity: str, business_date: date,
-                records: list[dict], amount_field: str | None = None) -> Path:
-    """Replace the partition (C3), write JSON Lines, then the manifest LAST."""
+def write_batch(root: Path, source: str, entity: str, business_date: date, records: list[dict],
+                amount_field: str | None = None, currency_field: str | None = None) -> Path:
+    """Replace the partition, write JSON Lines, then the manifest LAST."""
     out_dir = partition_dir(root, source, entity, business_date)
     if out_dir.exists():
-        shutil.rmtree(out_dir)  # C3: a rerun produces exactly one clean batch
+        shutil.rmtree(out_dir)  # a rerun produces exactly one clean batch
     out_dir.mkdir(parents=True)
     data_file = out_dir / "part-0001.jsonl"
     with data_file.open("w", encoding="utf-8", newline="\n") as f:
@@ -89,7 +93,8 @@ def write_batch(root: Path, source: str, entity: str, business_date: date,
         }],
         "record_count": len(records),
         "amount_field": amount_field,
-        "amount_total": _amount_total(records, amount_field),
+        "currency_field": currency_field,
+        "amount_totals": _amount_totals(records, amount_field, currency_field),
         "generated_at": utc_ts(generated),
     }
     (out_dir / "_manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")

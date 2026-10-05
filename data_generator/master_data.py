@@ -121,18 +121,23 @@ def build_accounts(cfg: GenConfig, customers: list[dict]) -> tuple[list[dict], l
 
 
 def build_merchants(cfg: GenConfig) -> list[dict]:
+    """About 92% Lithuanian merchants; the rest foreign (online/travel) to exercise FX."""
     rng = rng_for(cfg.seed, "merchants", "init")
+    foreign = [("PL", "Warszawa"), ("SE", "Stockholm"), ("GB", "London"), ("US", "New York")]
     records = []
     for i in range(1, cfg.n_merchants + 1):
         mcc, category, _ = rng.choices(MCCS, weights=[w for *_, w in MCCS])[0]
+        if rng.random() < 0.08:
+            country, city = rng.choice(foreign)
+        else:
+            country = "LT"
+            city = rng.choices([c for c, _ in LT_CITIES], weights=[w for _, w in LT_CITIES])[0]
         records.append({
             "op": "I", "change_seq": change_seq(cfg.start_date, i),
             "change_ts": change_time(cfg.start_date, i),
             "merchant_id": f"M-{i:05d}",
             "merchant_name": f"{rng.choice(NAME_PREFIXES)} {category} {i:04d}",
-            "mcc": mcc, "category": category,
-            "city": rng.choices([c for c, _ in LT_CITIES], weights=[w for _, w in LT_CITIES])[0],
-            "country": "LT",
+            "mcc": mcc, "category": category, "city": city, "country": country,
         })
     return records
 
