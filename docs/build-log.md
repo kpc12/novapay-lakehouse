@@ -14,6 +14,6 @@
 | 1.2 | Deterministic day-0 master data + tests | Valid parents; real KYC rules | Done |
 | 1.3 | Transactions, refunds, bills, salaries, FX | Timezones, as-of FX, refunds as new rows, per-currency totals | Done |
 | 1.4 | State engine + daily changes (1.4a / 1.4b) | SCD2, CDC, key_map inputs; consistent transactions | Done (41 tests pass) |
-| 1.5a | Record-level chaos S01-S07, logged, once-only | Prove quarantine, dedup, inferred members and key_map catch real faults | Written |
+| 1.5a | Record-level chaos S01-S07, logged, once-only | Prove quarantine, dedup, inferred members and key_map catch real faults | Done (53 tests pass) |
 
 Details per decision: see docs/decisions/ (ADRs), docs/data-model.md, docs/source-contracts.md.
