@@ -10,9 +10,9 @@
 | 0.6 | Storage credential + 2 external locations | Unity Catalog governs every path | Done (validate output pending) |
 | 0.7 | Catalog novapay_dev, 5 schemas, landing volume | Environment isolation; governed landing | Done (DESCRIBE DETAIL pending) |
 | ADR 0003 | Data model v2 | Reconcilable, traceable facts; realistic banking model | Done |
-| 1.1 | Source contracts v1.0 | Detect silent source changes | Written |
-| 1.2 | Deterministic day-0 master data + tests | Valid parents; real KYC rules | Written |
-| 1.3 | Transactions, refunds, bills, salaries, FX | Timezones, as-of FX, refunds as new rows, per-currency totals | Written |
-| 1.4 | State engine + daily changes (1.4a / 1.4b) | SCD2, CDC, key_map inputs; consistent transactions | Planned |
+| 1.1 | Source contracts v1.0 | Detect silent source changes | Done |
+| 1.2 | Deterministic day-0 master data + tests | Valid parents; real KYC rules | Done |
+| 1.3 | Transactions, refunds, bills, salaries, FX | Timezones, as-of FX, refunds as new rows, per-currency totals | Done |
+| 1.4 | State engine + daily changes (1.4a / 1.4b) | SCD2, CDC, key_map inputs; consistent transactions | Done (41 tests pass) |
 
 Details per decision: see docs/decisions/ (ADRs), docs/data-model.md, docs/source-contracts.md.
