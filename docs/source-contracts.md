@@ -110,3 +110,6 @@ open_credit_lines, days_past_due_max (max days late of bill payments paid in rep
 ### More known simplifications
 - Newly verified customers do not receive credit cards; new customers never invest
 - Score scale, bands and suitability rule are invented for the project, not taken from a real bureau or regulation
+
+## Deliberate contract violations
+Synthetic production faults are injected on purpose by the `chaos` command; see docs/chaos-catalog.md.
