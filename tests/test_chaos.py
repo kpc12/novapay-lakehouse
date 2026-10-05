@@ -1,13 +1,15 @@
-"""Tests for chaos injection part A (Step 1.5a). Run from the repo root: python -m pytest"""
+"""Tests for chaos injection (Steps 1.5a-1.5b). Run from the repo root: python -m pytest"""
 from __future__ import annotations
 
 import hashlib
 import json
+import re
 import shutil
 from collections import Counter
 from dataclasses import replace
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
+from zoneinfo import ZoneInfo
 
 import pytest
 from helpers import alias_map, folder
@@ -16,6 +18,8 @@ from data_generator.chaos import SCENARIO_CODES, ChaosError, apply_chaos
 from data_generator.state import KEY_CHANGE_DATE
 
 TXN = ("payments", "transactions")
+VILNIUS = ZoneInfo("Europe/Vilnius")
+UTC_TS = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$")
 
 
 def _lines(root, source, entity, d):
@@ -30,6 +34,10 @@ def _parsed(lines):
         except json.JSONDecodeError:
             pass
     return out
+
+
+def _manifest(f):
+    return json.loads((f / "_manifest.json").read_text(encoding="utf-8"))
 
 
 @pytest.fixture(scope="module")
@@ -48,6 +56,7 @@ def _entry_lines(chaos, code):
     return e, _lines(root, e["source"], e["entity"], date.fromisoformat(e["business_date"]))
 
 
+# ---------------------------------------------------------------- framework
 def test_every_scenario_applied_and_logged(chaos):
     _, root, _, log = chaos
     assert list(log) == SCENARIO_CODES
@@ -55,18 +64,43 @@ def test_every_scenario_applied_and_logged(chaos):
     assert (root / "_chaos" / "applied.json").exists()
 
 
-def test_manifests_still_describe_their_files(chaos):
+def test_recomputed_manifests_describe_their_files(chaos):
     _, root, _, log = chaos
-    targets = {(e["source"], e["entity"], e["business_date"]) for e in log.values()}
-    targets.add(("acquirer", "merchants", log["S06_LATE_ARRIVING_DIMENSION"]["dimension_arrives"]))
-    for source, entity, day in targets:
-        f = folder(root, source, entity, date.fromisoformat(day))
-        data = (f / "part-0001.jsonl").read_bytes()
-        manifest = json.loads((f / "_manifest.json").read_text(encoding="utf-8"))
-        assert manifest["record_count"] == len(data.splitlines())
-        assert manifest["files"][0]["sha256"] == hashlib.sha256(data).hexdigest()
+    for e in log.values():
+        for t in e["touched"]:
+            if t["manifest"] != "recomputed":
+                continue
+            f = folder(root, t["source"], t["entity"], date.fromisoformat(t["business_date"]))
+            manifest = _manifest(f)
+            total = 0
+            for item in manifest["files"]:
+                data = (f / item["name"]).read_bytes()
+                assert item["sha256"] == hashlib.sha256(data).hexdigest()
+                assert item["records"] == len(data.splitlines())
+                total += item["records"]
+            assert manifest["record_count"] == total
 
 
+def test_untouched_files_identical(chaos):
+    _, root, clean, _ = chaos
+    for d in (date(2026, 9, 12), date(2026, 9, 13)):
+        rel = folder(root, *TXN, d).relative_to(root) / "part-0001.jsonl"
+        assert (root / rel).read_bytes() == (clean / rel).read_bytes()
+
+
+def test_reapply_is_refused(chaos):
+    with pytest.raises(ChaosError):
+        apply_chaos(chaos[0])
+
+
+def test_refuses_without_data_and_changes_nothing(sim, tmp_path):
+    cfg = replace(sim[0], output_root=tmp_path / "empty")
+    with pytest.raises(ChaosError):
+        apply_chaos(cfg)
+    assert not (tmp_path / "empty" / "_chaos").exists()
+
+
+# ---------------------------------------------------------------- part A (1.5a)
 def test_s01_malformed_lines(chaos):
     e, lines = _entry_lines(chaos, "S01_MALFORMED_JSON")
     bad = 0
@@ -145,20 +179,75 @@ def test_s07_late_fact_with_old_customer_id(chaos):
     assert rows[e["ids"][0]]["customer_id"] in set(alias_map(root))
 
 
-def test_untouched_files_identical(chaos):
-    _, root, clean, _ = chaos
-    for d in (date(2026, 9, 12), date(2026, 9, 13)):
-        rel = folder(root, *TXN, d).relative_to(root) / "part-0001.jsonl"
-        assert (root / rel).read_bytes() == (clean / rel).read_bytes()
+# ---------------------------------------------------------------- part B (1.5b)
+def test_s08_resent_file(chaos):
+    _, root, _, log = chaos
+    e = log["S08_RESENT_FILE"]
+    f = folder(root, *TXN, date.fromisoformat(e["business_date"]))
+    first, second = (f / "part-0001.jsonl").read_bytes(), (f / "part-0002.jsonl").read_bytes()
+    assert first == second
+    manifest = _manifest(f)
+    assert [x["name"] for x in manifest["files"]] == ["part-0001.jsonl", "part-0002.jsonl"]
+    assert manifest["files"][0]["sha256"] == manifest["files"][1]["sha256"]
+    assert manifest["record_count"] == 2 * len(first.splitlines()) == 2 * e["affected"]
 
 
-def test_reapply_is_refused(chaos):
-    with pytest.raises(ChaosError):
-        apply_chaos(chaos[0])
+def test_s09_truncated_upload_with_stale_manifest(chaos):
+    _, root, _, log = chaos
+    e = log["S09_TRUNCATED_UPLOAD"]
+    f = folder(root, *TXN, date.fromisoformat(e["business_date"]))
+    data = (f / "part-0001.jsonl").read_bytes()
+    lines = data.decode("utf-8").splitlines()
+    manifest = _manifest(f)
+    assert manifest["record_count"] == e["expected_records"] != len(lines)
+    assert manifest["files"][0]["sha256"] != hashlib.sha256(data).hexdigest()
+    with pytest.raises(json.JSONDecodeError):
+        json.loads(lines[-1])
+    original = (root / e["redelivery"] / "part-0001.jsonl").read_bytes()
+    assert hashlib.sha256(original).hexdigest() == manifest["files"][0]["sha256"]
 
 
-def test_refuses_without_data_and_changes_nothing(sim, tmp_path):
-    cfg = replace(sim[0], output_root=tmp_path / "empty")
-    with pytest.raises(ChaosError):
-        apply_chaos(cfg)
-    assert not (tmp_path / "empty" / "_chaos").exists()
+def test_s10_late_file_held_back(chaos):
+    _, root, _, log = chaos
+    e = log["S10_LATE_FILE"]
+    assert not folder(root, *TXN, date.fromisoformat(e["business_date"])).exists()
+    late = root / e["moved_to"]
+    lines = (late / "part-0001.jsonl").read_text(encoding="utf-8").splitlines()
+    assert _manifest(late)["record_count"] == len(lines) == e["affected"]
+
+
+def test_s11_added_field_announced_as_1_1(chaos):
+    _, root, _, log = chaos
+    for t in log["S11_ADDED_FIELD"]["touched"]:
+        d = date.fromisoformat(t["business_date"])
+        assert _manifest(folder(root, *TXN, d))["schema_version"] == "1.1"
+        assert all("device_type" in r for r in _parsed(_lines(root, *TXN, d)))
+    before = date(2026, 9, 30)
+    assert _manifest(folder(root, *TXN, before))["schema_version"] == "1.0"
+    assert not any("device_type" in r for r in _parsed(_lines(root, *TXN, before)))
+
+
+def test_s12_renamed_field_without_version_bump(chaos):
+    _, root, _, log = chaos
+    for t in log["S12_RENAMED_FIELD"]["touched"]:
+        d = date.fromisoformat(t["business_date"])
+        assert _manifest(folder(root, *TXN, d))["schema_version"] == "1.1"
+        assert all("merchant_ref" in r and "merchant_id" not in r for r in _parsed(_lines(root, *TXN, d)))
+    assert all("merchant_id" in r for r in _parsed(_lines(root, *TXN, date(2026, 11, 8))))
+
+
+def test_s13_due_date_becomes_utc_timestamp_of_local_midnight(chaos):
+    _, root, _, log = chaos
+    for t in log["S13_DUE_DATE_FORMAT"]["touched"]:
+        d = date.fromisoformat(t["business_date"])
+        for r in _parsed(_lines(root, *TXN, d)):
+            if r["transaction_type"] != "bill_payment":
+                continue
+            assert UTC_TS.match(r["due_date"])
+            local = datetime.strptime(r["due_date"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            local = local.astimezone(VILNIUS)
+            assert (local.hour, local.minute) == (0, 0)
+            assert -5 <= (d - local.date()).days <= 10
+    for r in _parsed(_lines(root, *TXN, date(2026, 11, 1))):
+        if r["transaction_type"] == "bill_payment":
+            date.fromisoformat(r["due_date"])          # still plain yyyy-mm-dd before the change

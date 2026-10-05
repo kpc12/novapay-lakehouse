@@ -22,7 +22,7 @@ CASE_BASE_RATE = 0.0015
 CASE_AFTER_DECLINE_RATE = 0.15
 CASE_REASONS = ["card_issue", "login_problem", "fee_question", "transfer_status"]
 CASE_CHANNELS = [("chat", 60), ("phone", 25), ("email", 15)]
-BASE_SCORE = {"low": 760, "medium": 620, "high": 470}
+BASE_SCORE = {"low": 760, "medium": 620, "high": 400}
 BAND_LIMITS = [(800, "A"), (650, "B"), (500, "C"), (350, "D")]   # below 350 = "E"
 UNITS = Decimal("0.0001")
 

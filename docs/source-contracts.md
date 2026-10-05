@@ -113,3 +113,9 @@ open_credit_lines, days_past_due_max (max days late of bill payments paid in rep
 
 ## Deliberate contract violations
 Synthetic production faults are injected on purpose by the `chaos` command; see docs/chaos-catalog.md.
+
+## Contract version history
+- 1.0 (2026-09-01): initial contract
+- 1.1 (announced, effective 2026-10-01): payments/transactions adds field `device_type`
+  (pos_terminal / web_browser / bank_system / ios / android). Additive; existing fields unchanged.
+Unannounced changes (S12 rename, S13 due_date format) are contract VIOLATIONS: see docs/chaos-catalog.md.
