@@ -79,10 +79,17 @@ def test_currency_matches_merchant_country(sim, txns):
 
 
 def test_expired_kyc_customers_make_no_outgoing_payments(sim, txns):
-    day0 = load(folder(sim[1], "core_banking", "customers", SIM_START))
-    expired = {c["customer_id"] for c in day0 if c["kyc_status"] == "expired"}
-    for rows in txns.values():
-        assert not [r for r in rows if r["transaction_type"] in OUTGOING and r["customer_id"] in expired]
+    """KYC status changes over time (Step 1.4b): check each day against that day's status."""
+    status: dict[str, str] = {}
+    changes: dict = {}
+    for d, r in load_all(sim[1], "core_banking", "customers"):
+        changes.setdefault(d, []).append(r)
+    for d in DAYS:
+        for r in changes.get(d, []):
+            status[r["customer_id"]] = r["kyc_status"]
+        for t in txns[d]:
+            if t["transaction_type"] in OUTGOING:
+                assert status[t["customer_id"]] != "expired"
 
 
 def test_bill_payment_dates_and_salary_weekdays(txns):

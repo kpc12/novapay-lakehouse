@@ -81,3 +81,32 @@ Consumers convert with the latest rate on or before the transaction's business d
 - Investment purchases do not appear as cash transactions
 - Foreign merchants are online-only; transfers, bills and salaries are always EUR
 - New customers start as mass segment, medium risk, KYC pending
+
+## Step 1.4b additions (schema_version 1.0)
+
+### kyc_vendor/kyc_checks (daily events from day 1; may be empty)
+Key: kyc_check_id. Fields: kyc_check_id, check_ts (UTC), customer_id,
+check_type (identity_document/periodic_review/re_verification), result (pass/fail/review), provider.
+Rule: a check that changes kyc_status comes with a customers op U on the same day (change_ts = check_ts).
+pending -> verified on pass; verified -> expired on failed periodic review; expired -> verified on passed re-verification.
+
+### custodian/holdings (TARGET business days only; end-of-day positions)
+Key: (business_date, customer_id, isin). Fields: business_date, customer_id, isin, units (4 dp),
+price (4 dp), market_value (2 dp), currency. Manifest totals on market_value.
+Illustrative suitability rule: product risk_level <= 3 / 5 / 7 for risk_rating low / medium / high.
+
+### crm/support_cases (daily change records from day 1; accumulating-snapshot input)
+Key: case_id. Fields: op, change_seq, change_ts, case_id, customer_id, channel (chat/phone/email),
+reason (declined_payment/card_issue/login_problem/fee_question/transfer_status),
+status (opened/in_progress/resolved), opened_ts, first_response_ts, resolved_ts.
+Lifecycle: opened (I) -> in_progress (U, 1-2 days later) -> resolved (U, 1-5 days later).
+Updates carry the current customer id. Cases are much more likely on days with a declined payment.
+
+### credit_bureau/credit_scores (first TARGET business day of each month, for the previous month)
+Key: (report_month, customer_id). Fields: report_month (yyyy-mm), customer_id,
+score (integer 1-999, invented scale), risk_band (A >= 800, B >= 650, C >= 500, D >= 350, else E),
+open_credit_lines, days_past_due_max (max days late of bill payments paid in report_month), bureau.
+
+### More known simplifications
+- Newly verified customers do not receive credit cards; new customers never invest
+- Score scale, bands and suitability rule are invented for the project, not taken from a real bureau or regulation
