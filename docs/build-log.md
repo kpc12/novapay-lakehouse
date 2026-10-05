@@ -19,3 +19,13 @@
 | 1.6 | Uploader: date order, manifest last, no overwrites, ledger, late delivery and redelivery as new part (ADR 0004) | Auto Loader ingests each file once; Airflow trusts the manifest | Written |
 
 Details per decision: see docs/decisions/ (ADRs), docs/data-model.md, docs/source-contracts.md.
+
+## Findings and fixes (with evidence)
+| Date | Finding | Action |
+|---|---|---|
+| Step 1.4b | Risk band E could never occur (min score ~365) | Base score for high risk lowered to 400; E = 35, A and B unchanged |
+| Step 1.6 | CLI v0.290.1 could not force token refresh (SDK warning) | Upgraded to v1.19.0; re-login required (old token cache rejected by design) |
+| Step 1.6 | `validate` by URL refused once an external location covers the path | Validate through the external location; all core operations PASS |
+| Step 1.6 | infra/databricks SQL and README were never committed | Recreated and committed (8971626); found via `git ls-files` |
+| Step 1.6 | Predictive optimization is ENABLE (inherited from metastore) | Phase 4 retention settings must account for automatic VACUUM |
+| Step 1.6 | File-events provisioning fails (identity has data role only) | Decision pending: directory listing vs extra roles (ADR 0005) |
