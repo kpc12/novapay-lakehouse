@@ -60,3 +60,24 @@ Fields: rate_date, base_currency (EUR), currency, rate (units per 1 EUR, 4 dp), 
 No file on weekends or fixed-date TARGET closing days (1 Jan, 1 May, 25-26 Dec).
 Consumers convert with the latest rate on or before the transaction's business date
 (as-of join). Synthetic values - not market data.
+
+## Step 1.4a additions (schema_version 1.0)
+- Change files (customers, accounts, account_holders, merchants) are delivered EVERY day from
+  day 1, even when empty: empty file + manifest (record_count 0) = "no changes today".
+- I/U records carry the full row after the change; D records carry the last known row.
+- Key change: op U with the NEW customer_id and old_customer_id set (only on that record);
+  holdings of the old id arrive as D (old id) + I (new id). Later events use the new id;
+  refunds of earlier purchases carry the new id (resolve via key_map).
+- Account closure = op U with status closed (never a delete); closed accounts stop transacting.
+- Joint-holder removal = op D on account_holders.
+- reference/billers and reference/invest_products: full snapshot every day; a missing key
+  means deleted (only trust this after the snapshot passes a completeness check).
+- Scenario dates: 2026-10-05 biller B-011 added; 2026-10-15 key change (3 customers);
+  2026-10-25 DST change in Vilnius; 2026-11-02 NPX000000009 risk_level 6 -> 7;
+  2026-11-16 biller B-010 removed.
+
+## Known simplifications (synthetic data)
+- kyc_status = pending customers can make payments (only expired is blocked)
+- Investment purchases do not appear as cash transactions
+- Foreign merchants are online-only; transfers, bills and salaries are always EUR
+- New customers start as mass segment, medium risk, KYC pending

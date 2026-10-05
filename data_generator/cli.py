@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .config import GenConfig
 from .master_data import generate_initial
-from .transactions import generate_range
+from .daily import run_daily
 
 
 def _common_args(parser: argparse.ArgumentParser, defaults: GenConfig) -> None:
@@ -37,7 +37,7 @@ def main(argv: list[str] | None = None) -> None:
             parser.error(f"--start cannot be before the master-data start date {cfg.start_date}")
         if args.end < args.start:
             parser.error("--end must be on or after --start")
-        paths = generate_range(cfg, args.start, args.end)
+        paths = run_daily(cfg, args.start, args.end)
     for p in paths:
         print(f"wrote {p}")
 
