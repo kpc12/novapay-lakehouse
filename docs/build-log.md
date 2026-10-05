@@ -16,5 +16,6 @@
 | 1.4 | State engine + daily changes (1.4a / 1.4b) | SCD2, CDC, key_map inputs; consistent transactions | Done (41 tests pass) |
 | 1.5a | Record-level chaos S01-S07, logged, once-only | Prove quarantine, dedup, inferred members and key_map catch real faults | Done (53 tests pass) |
 | 1.5b | File and schema chaos S08-S13 (resend, truncated upload, late file, added/renamed field, due_date format); band E enabled | Prove reconciliation, rejection, late-data, schema-evolution and Stage 6 handling | Done (59 tests pass; band E = 35) |
+| 1.6 | Uploader: date order, manifest last, no overwrites, ledger, late delivery and redelivery as new part (ADR 0004) | Auto Loader ingests each file once; Airflow trusts the manifest | Written |
 
 Details per decision: see docs/decisions/ (ADRs), docs/data-model.md, docs/source-contracts.md.

@@ -119,3 +119,9 @@ Synthetic production faults are injected on purpose by the `chaos` command; see 
 - 1.1 (announced, effective 2026-10-01): payments/transactions adds field `device_type`
   (pos_terminal / web_browser / bank_system / ios / android). Additive; existing fields unchanged.
 Unannounced changes (S12 rename, S13 due_date format) are contract VIOLATIONS: see docs/chaos-catalog.md.
+
+## Delivery protocol (ADR 0004)
+- Batches arrive in business-date order; data files first, _manifest.json last.
+- Data files are immutable once delivered. A redelivery is a new part file; the replacement
+  manifest lists only that file and adds `delivery_attempt` and `supersedes`.
+- Late batches arrive later in their normal business-date path.
