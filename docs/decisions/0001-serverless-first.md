@@ -1,7 +1,7 @@
 # ADR 0001: Serverless compute first
 
 ## Status
-Accepted
+Accepted (amended by ADR 0002: classic job clusters for tuning labs)
 
 ## Context
 Personal Azure subscription (pay-as-you-go, Premium Databricks workspace, East US);

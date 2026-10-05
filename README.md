@@ -13,7 +13,7 @@ GitHub Actions and Snowflake. All data is synthetic.
 _Diagram added in Phase 10._ Medallion layers: Bronze (raw JSON) → Silver (clean, SCD2) → Gold (star schema, marts).
 
 ## Progress
-- [ ] Phase 0 – Setup
+- [x] Phase 0 – Setup
 - [ ] Phase 1 – Synthetic data generator
 - [ ] Phase 2 – Bronze (Auto Loader)
 - [ ] Phase 3 – Silver (DQ, SCD2, CDC)
