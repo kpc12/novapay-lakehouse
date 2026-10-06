@@ -1,4 +1,8 @@
 # Databricks notebook source
+# /// script
+# [tool.databricks.environment]
+# environment_version = "6"
+# ///
 # MAGIC %md
 # MAGIC # Bronze ingestion - Phase 2, Step 2.1
 # MAGIC Ingests every delivered source entity into `bronze.<entity>` with Auto Loader (availableNow),
