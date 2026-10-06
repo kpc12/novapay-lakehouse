@@ -30,6 +30,8 @@ print("repo root:", root, "| run_id:", run_id)
 
 # COMMAND ----------
 
+import time
+
 ingested = []
 for se in SOURCE_ENTITIES:
     try:
@@ -37,9 +39,10 @@ for se in SOURCE_ENTITIES:
     except Exception:
         print(f"skip {se.entity}: nothing delivered yet")
         continue
+    started = time.time()
     ingest(spark, catalog, landing_root, checkpoint_root, se, run_id)
     ingested.append(se)
-    print(f"ingested {se.entity}")
+    print(f"ingested {se.entity} in {time.time() - started:.0f}s")
 
 # COMMAND ----------
 

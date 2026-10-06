@@ -43,6 +43,7 @@ def ingest(spark: SparkSession, catalog: str, landing_root: str, checkpoint_root
     checkpoint = f"{checkpoint_root}/{se.entity}"
     query = (add_lineage(read_landing(spark, landing_root, checkpoint, se), run_id)
              .writeStream
+             .queryName(f"bronze_{se.entity}")             # visible in spark.streams.active
              .option("checkpointLocation", checkpoint)
              .option("mergeSchema", "true")                         # Bronze table evolves with new columns
              .trigger(availableNow=True)
