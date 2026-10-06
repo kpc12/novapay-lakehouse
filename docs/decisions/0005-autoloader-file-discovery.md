@@ -23,3 +23,9 @@ external locations so they are not left half-provisioned.
 + Behaviour is explicit, not dependent on defaults.
 - Each run lists the landing directories; cost and time grow with directory size.
 - Phase 9 will measure directory listing vs file events before any change.
+
+## Follow-up (inspection result)
+`external-locations get el_novapay_landing` showed effective_enable_file_events = true with a
+managed Azure Queue Storage configuration, while provisioning had failed (403): a half-configured
+state. File events were disabled on el_novapay_landing and el_novapay_lakehouse; validate now
+passes. Streams also set cloudFiles.useManagedFileEvents = false, so behaviour stays explicit.
