@@ -30,3 +30,4 @@ Details per decision: see docs/decisions/ (ADRs), docs/data-model.md, docs/sourc
 | Step 1.6 | infra/databricks SQL and README were never committed | Recreated and committed (8971626); found via `git ls-files` |
 | Step 1.6 | Predictive optimization is ENABLE (inherited from metastore) | Phase 4 retention settings must account for automatic VACUUM |
 | Step 1.6 | File-events provisioning fails (identity has data role only) | Decision pending: directory listing vs extra roles (ADR 0005) |
+| Step 2.1 | Spark skips files starting with "_", so spark.read.json found no _manifest.json (UNABLE_TO_INFER_SCHEMA) | Manifests read with plain Python (common/manifests.py) + local test |

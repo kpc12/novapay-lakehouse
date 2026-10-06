@@ -9,6 +9,7 @@ from __future__ import annotations
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
+from novapay.common.manifests import manifest_rows
 from novapay.common.sources import BATCH_DATE_PATTERN, SourceEntity
 
 
@@ -50,12 +51,11 @@ def ingest(spark: SparkSession, catalog: str, landing_root: str, checkpoint_root
 
 
 def reconcile(spark: SparkSession, catalog: str, landing_root: str, se: SourceEntity, run_id: str) -> DataFrame:
-    """Bronze rows per batch date vs. the manifest's record_count. Missing counts mean 0,
-    so empty change files (no changes that day) reconcile as 0 = 0."""
-    manifests = (spark.read.option("multiLine", "true")
-                 .json(f"{landing_root}/{se.landing_subpath}/*/*/*/_manifest.json")
-                 .select(F.to_date("business_date").alias("batch_date"),
-                         F.col("record_count").cast("long").alias("manifest_records")))
+    """Bronze rows per batch date vs. the manifest's record_count. Manifests are read with plain
+    Python (Spark skips '_' files). Missing counts mean 0, so empty change files reconcile as 0 = 0."""
+    manifests = (spark.createDataFrame(manifest_rows(landing_root, se.landing_subpath),
+                                       "business_date STRING, manifest_records LONG")
+                 .select(F.to_date("business_date").alias("batch_date"), "manifest_records"))
     bronze = (spark.table(f"{catalog}.{se.bronze_table}")
               .groupBy(F.col("_batch_date").alias("batch_date"))
               .agg(F.count(F.lit(1)).alias("bronze_records")))
