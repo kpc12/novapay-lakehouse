@@ -32,3 +32,4 @@ Details per decision: see docs/decisions/ (ADRs), docs/data-model.md, docs/sourc
 | Step 1.6 | File-events provisioning fails (identity has data role only) | Decision pending: directory listing vs extra roles (ADR 0005) |
 | Step 2.1 | Spark skips files starting with "_", so spark.read.json found no _manifest.json (UNABLE_TO_INFER_SCHEMA) | Manifests read with plain Python (common/manifests.py) + local test |
 | Step 2.2a | Malformed lines became all-null Bronze rows; _rescued_data empty; counts still matched | ADR 0006: Silver quarantines all-null rows; raw line recovered from immutable landing |
+| Step 2.2c | Type problems (12,67 / n/a / 09/09/2026 06:24) stored unchanged; _rescued_data empty because all Bronze columns are text | Silver rules invalid_amount and invalid_event_ts via try_cast; quarantine, never auto-correct money or timezones |
