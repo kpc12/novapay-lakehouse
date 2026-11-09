@@ -9,7 +9,7 @@ from __future__ import annotations
 from pyspark.sql import DataFrame, SparkSession
 from pyspark.sql import functions as F
 
-from novapay.common.manifests import manifest_rows
+from novapay.common.manifests import manifest_listing
 from novapay.common.sources import BATCH_DATE_PATTERN, SourceEntity
 
 
@@ -52,18 +52,26 @@ def ingest(spark: SparkSession, catalog: str, landing_root: str, checkpoint_root
 
 
 def reconcile(spark: SparkSession, catalog: str, landing_root: str, se: SourceEntity, run_id: str) -> DataFrame:
-    """Bronze rows per batch date vs. the manifest's record_count. Manifests are read with plain
-    Python (Spark skips '_' files). Missing counts mean 0, so empty change files reconcile as 0 = 0."""
-    manifests = (spark.createDataFrame(manifest_rows(landing_root, se.landing_subpath),
-                                       "business_date STRING, manifest_records LONG")
-                 .select(F.to_date("business_date").alias("batch_date"), "manifest_records"))
+    """Manifest-driven: per batch date, compare the manifest's record_count with Bronze rows from the
+    files the manifest lists. Rows from unlisted files (e.g. superseded by a redelivery) are reported
+    in unlisted_records, not counted. Missing counts mean 0 (empty files reconcile as 0 = 0)."""
+    listing = (spark.createDataFrame(manifest_listing(landing_root, se.landing_subpath),
+                                     "business_date STRING, manifest_records LONG, file_name STRING")
+               .select(F.to_date("business_date").alias("batch_date"), "manifest_records", "file_name"))
+    manifests = listing.groupBy("batch_date").agg(F.max("manifest_records").alias("manifest_records"))
+    listed = listing.select("batch_date", "file_name").withColumn("listed", F.lit(True))
     bronze = (spark.table(f"{catalog}.{se.bronze_table}")
-              .groupBy(F.col("_batch_date").alias("batch_date"))
-              .agg(F.count(F.lit(1)).alias("bronze_records")))
+              .select(F.col("_batch_date").alias("batch_date"),
+                      F.element_at(F.split("_source_file", "/"), -1).alias("file_name"))
+              .join(listed, ["batch_date", "file_name"], "left")
+              .groupBy("batch_date")
+              .agg(F.sum(F.when(F.col("listed"), 1).otherwise(0)).alias("bronze_records"),
+                   F.sum(F.when(F.col("listed").isNull(), 1).otherwise(0)).alias("unlisted_records")))
     manifest_n = F.coalesce(F.col("manifest_records"), F.lit(0))
     bronze_n = F.coalesce(F.col("bronze_records"), F.lit(0))
     return (manifests.join(bronze, "batch_date", "full_outer")
             .select(F.lit(se.entity).alias("entity"), "batch_date",
                     manifest_n.alias("manifest_records"), bronze_n.alias("bronze_records"),
+                    F.coalesce(F.col("unlisted_records"), F.lit(0)).alias("unlisted_records"),
                     F.when(manifest_n == bronze_n, "OK").otherwise("MISMATCH").alias("status"),
                     F.lit(run_id).alias("run_id"), F.current_timestamp().alias("checked_at")))

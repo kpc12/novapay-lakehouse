@@ -54,7 +54,7 @@ from functools import reduce
 
 results = reduce(lambda a, b: a.unionByName(b),
                  [reconcile(spark, catalog, landing_root, se, run_id) for se in ingested])
-results.write.mode("append").saveAsTable(f"{catalog}.ops.bronze_reconciliation")
+results.write.mode("append").option("mergeSchema", "true").saveAsTable(f"{catalog}.ops.bronze_reconciliation")
 display(results.orderBy("entity", "batch_date"))
 
 # COMMAND ----------

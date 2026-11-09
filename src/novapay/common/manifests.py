@@ -19,3 +19,16 @@ def manifest_rows(landing_root: str, subpath: str) -> list[tuple[str, int]]:
             manifest = json.load(f)
         rows.append((manifest["business_date"], int(manifest["record_count"])))
     return rows
+
+
+def manifest_listing(landing_root: str, subpath: str) -> list[tuple[str, int, str]]:
+    """One row per data file named in each manifest: (business_date, record_count, file_name).
+    Reconciliation counts only rows from these files, so superseded files (redeliveries) are excluded."""
+    pattern = os.path.join(landing_root, subpath, "*", "*", "*", "_manifest.json")
+    rows = []
+    for path in sorted(glob.glob(pattern)):
+        with open(path, encoding="utf-8") as f:
+            manifest = json.load(f)
+        for item in manifest["files"]:
+            rows.append((manifest["business_date"], int(manifest["record_count"]), item["name"]))
+    return rows
